@@ -1,95 +1,60 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = [
-#     "textual>=0.70.0,<1.0.0",
-#     "rich>=13.0.0,<14.0.0", # rich is a dependency of textual, but specifying it for clarity
-# ]
+# dependencies = ["textual>=0.70.0,<1.0.0", "rich>=13.0.0,<14.0.0"]
 # requires-python = ">=3.12"
-# description = "A multi-dice rolling application for the terminal."
-# authors = [{name = "Jules", email = "no-reply@example.com"}]
 # ///
 
 import asyncio
 import secrets
 import sys
 import random
-from enum import Enum, auto
-from dataclasses import dataclass, field
+from enum import Enum # auto removed as DiceState is removed
+from dataclasses import dataclass # field removed as ValidationResult is removed
 from typing import List, Tuple, Dict, Optional, Callable
 
 try:
     from textual.app import App, ComposeResult
     from textual.containers import Container, Horizontal, Vertical, Grid
-    from textual.widgets import Header, Footer, Button, Label, Static
+    from textual.widgets import Header, Footer, Button, Label # Static removed
     from textual.binding import Binding
-    from textual.css.query import DOMQuery
-    from textual import events
+    # DOMQuery, events, Message removed as they appear unused
     from textual.reactive import reactive
-    from textual.message import Message
 
     from rich.text import Text
-    from rich.align import Align
-    from rich.console import ConsoleOptions, Console, RenderResult
-    from rich.measure import Measurement
-    from rich.segment import Segments
+    # Align, ConsoleOptions, Console, RenderResult, Measurement, Segments removed
+    # Assuming Textual handles Rich integration sufficiently with just Text for this app's needs.
 
 except ImportError:
-    print("Error: Missing required dependencies (textual, rich).", file=sys.stderr)
-    print("Please ensure 'textual' and 'rich' are installed.", file=sys.stderr)
-    print("You can typically install them using: pip install textual rich", file=sys.stderr)
-    print("If using uv, ensure the script header is correct and run with: uv run multi_dice_roller.py", file=sys.stderr)
+    print("Run: uv cache clean && uv run multi_dice_roller.py", file=sys.stderr)
     sys.exit(1)
 
 # --- Enums and Data Classes ---
-
-class DiceState(Enum):
-    """Represents the state of a die or the dice rolling process."""
-    IDLE = auto()
-    ROLLING = auto()
-    COMPLETED = auto() # Animation finished, result shown
-
-@dataclass
-class GridDimensions:
-    """Represents the dimensions of the dice grid."""
-    columns: int
-    rows: int
-
-@dataclass
-class StatisticsInfo:
-    """Holds calculated statistics for a set of dice rolls."""
-    total_sum: int
-    frequencies: Dict[int, int] # Face value -> count
-    roll_count: int = 0
-
-@dataclass
-class ValidationResult:
-    """Holds the result of a validation check."""
-    is_valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-
+# Unused DiceState, GridDimensions, StatisticsInfo, ValidationResult removed.
 # --- End Enums and Data Classes ---
 
 # --- Utility Functions ---
 
-def calculateOptimalGrid(dice_count: int) -> GridDimensions:
-    """Calculate optimal grid layout for given number of dice."""
-    if dice_count <= 0:
-        return GridDimensions(columns=0, rows=0)
-    if dice_count == 1:
-        return GridDimensions(columns=1, rows=1)
-    elif dice_count == 2:
-        return GridDimensions(columns=2, rows=1)
-    elif dice_count == 3:
-        return GridDimensions(columns=3, rows=1)
-    elif dice_count == 4:
-        return GridDimensions(columns=2, rows=2)
-    elif dice_count in (5, 6):
-        return GridDimensions(columns=3, rows=2)
-    elif dice_count in (7, 8):
-        return GridDimensions(columns=4, rows=2)
-    else: # Should not happen with max 8 dice, but as a fallback
-        return GridDimensions(columns=4, rows=(dice_count + 3) // 4)
+def get_grid_layout_dimensions(dice_count: int) -> Tuple[int, int]:
+    """Calculate optimal grid layout dimensions (columns, rows) for a given number of dice."""
+    layout_map = {
+        1: (1, 1), 2: (2, 1), 3: (3, 1), 4: (2, 2),
+        5: (3, 2), 6: (3, 2), 7: (4, 2), 8: (4, 2)
+    }
+    if not (1 <= dice_count <= 8):
+        # Fallback for invalid counts. App logic should prevent 0 or <0.
+        # For dice_count = 0, an empty grid is usually handled separately.
+        # Returning (0,0) for 0 dice, and a default for >8 or other unexpected.
+        if dice_count == 0:
+            return (0, 0)
+        # Default for > 8 dice or other unexpected values (e.g. negative, though MIN_DICE=1)
+        # A small grid or error might be appropriate. For now, let's use a 4-column grid.
+        # This case should ideally not be reached if MIN_DICE/MAX_DICE are enforced.
+        # The spec's map only covers 1-8.
+        # Returning a default like (4, (dice_count + 3) // 4) as in old func for >8
+        if dice_count > 8 :
+            return (4, (dice_count + 3) // 4)
+        return (1,1) # Default for any other unexpected values (e.g. negative if checks fail)
+    return layout_map.get(dice_count, (1, 1)) # .get with default for safety, though keys 1-8 are covered.
 
 def calculate_frequencies(results: List[int]) -> Dict[int, int]:
     """Calculates the frequency of each die face in the results."""
@@ -116,11 +81,12 @@ def format_frequencies(frequencies: Dict[int, int]) -> str:
 def detect_terminal_capabilities() -> dict:
     """Basic terminal capability detection.
     For now, just gets size. Could be expanded.
+    (This function is currently not used in the application and will be removed)
     """
     # In a Textual app, self.app.size is preferred once the app is running.
     # This is a more general placeholder.
     try:
-        import shutil
+        import shutil # shutil is only used here
         columns, rows = shutil.get_terminal_size()
         return {
             "width": columns,
@@ -136,30 +102,42 @@ def detect_terminal_capabilities() -> dict:
             "emoji": False
         }
 
-def validate_multi_dice_randomness(roll_history: List[List[int]]) -> ValidationResult:
-    """Placeholder for multi-dice randomness validation.
-    True statistical validation is complex and beyond scope for initial setup.
-    """
-    # This is a simplified placeholder.
-    # A real implementation would involve statistical tests (e.g., Chi-squared).
-    if not roll_history:
-        return ValidationResult(is_valid=True, warnings=["No history to validate."])
-
-    # Basic checks:
-    num_dice = 0
-    if roll_history[0]:
-        num_dice = len(roll_history[0])
-
-    for roll in roll_history:
-        if len(roll) != num_dice:
-            return ValidationResult(is_valid=False, errors=["Inconsistent number of dice in history."])
-        for value in roll:
-            if not (1 <= value <= 6):
-                return ValidationResult(is_valid=False, errors=[f"Invalid die value '{value}' in history."])
-
-    return ValidationResult(is_valid=True, warnings=["Simplified validation passed."])
-
+# Unused validate_multi_dice_randomness and detect_terminal_capabilities functions will be removed.
 # --- End Utility Functions ---
+
+# --- Random Float Utility (as per spec) ---
+def random_float(min_val: float, max_val: float) -> float:
+    """
+    Generates a cryptographically secure random float within a given range [min_val, max_val).
+    Uses secrets.token_bytes for randomness and normalizes it to the specified range.
+    """
+    if not (isinstance(min_val, (int, float)) and isinstance(max_val, (int, float))):
+        raise TypeError("min_val and max_val must be numbers")
+    if min_val >= max_val:
+        # Or handle as an error, e.g., raise ValueError
+        # For now, allowing min_val == max_val, which will just return min_val
+        if min_val > max_val: # If strictly greater, maybe raise error or swap
+             raise ValueError("min_val cannot be greater than max_val")
+        return min_val
+
+
+    byte_count = 4 # 32 bits for precision
+    try:
+        raw_bytes = secrets.token_bytes(byte_count)
+    except Exception as e:
+        # Fallback to standard random if secrets.token_bytes fails (highly unlikely in normal environments).
+        # This ensures the function still returns a value, albeit less secure.
+        normalized_float = random.random()
+    else:
+        normalized_int = int.from_bytes(raw_bytes, 'big')
+        # (2**(byte_count*8) - 1) is the max possible integer value for that many bytes
+        max_int_val = (1 << (byte_count * 8)) -1 # More efficient calculation for 2**N - 1
+        if max_int_val == 0: # Avoid division by zero if byte_count was 0 (not the case here)
+            normalized_float = 0.0
+        else:
+            normalized_float = normalized_int / max_int_val
+
+    return min_val + normalized_float * (max_val - min_val)
 
 # --- Main Application Class ---
 
@@ -213,12 +191,8 @@ class DiceRollerApp(App[None]):
 
     #dice-grid-container { /* Renamed from #dice-grid from spec */
         width: 100%;
-        /* min-height: 8; From spec - this might be too large, let grid content define it */
-        /* max-height: 16; From spec - let grid content define it */
         align: center middle;
         margin: 1 0; /* From spec */
-        /* grid-gutter: 1 2; From spec - can be added if desired */
-        /* border: round $accent lightly-transparent; Kept from previous */
         padding: 1;
     }
 
@@ -231,14 +205,6 @@ class DiceRollerApp(App[None]):
         background: $surface;
         border: solid $accent; /* From spec */
         margin: 0; /* From spec */
-        /* font-size: 150%; Replaced by text-size from spec if available, or keep if text-size not in spec */
-        /* Using Textual's text-size property if available, otherwise this is Rich specific.
-           The spec's CSS has 'text-size: 2;' for .die-emoji, assuming this means 2 cells or similar.
-           Textual Label doesn't have direct text-size CSS. Font-size is better for web.
-           For terminal, the size of the label itself dictates content space.
-           The spec's `createDieEmoji` uses `with_font_size(large)`.
-           Let's ensure the label is big enough and text is centered.
-        */
     }
 
     .die-emoji-label:hover { /* From spec */
@@ -249,6 +215,21 @@ class DiceRollerApp(App[None]):
     .die-emoji-label.rolling {
         border: round $warning;
         opacity: 0.75;
+    }
+
+    .die-emoji-label.selected {
+        border: heavy $primary-darken-2;
+        background: $primary-background-lighten-2;
+        /* Ensure high contrast for selection */
+    }
+
+    .die-emoji-label.locked {
+        background: $warning-darken-1; /* Darker warning for background */
+        color: $text; /* Ensure text (emoji) is visible */
+        border: thick $error-darken-2; /* Distinct border for locked state */
+        /* Consider adding a textual lock indicator if emoji modification is too complex:
+           e.g., prefixing the Label's renderable with "🔒 " in update_dice_visual_states
+           For now, relying on background and border. */
     }
 
     .stats-container {
@@ -273,8 +254,6 @@ class DiceRollerApp(App[None]):
         width: 100%;
         text-align: center;
         color: $text; /* From spec */
-        /* text-size: 0.9em; From spec - Textual Label doesn't have direct text-size. */
-        /* We can make the label itself smaller or use Rich Text styling if needed. */
         margin-top: 0; /* Added */
     }
 
@@ -304,7 +283,6 @@ class DiceRollerApp(App[None]):
         text-align: center;
         color: $text-muted; /* From spec */
         margin-top: 1; /* From spec */
-        /* text-size: 0.8em; From spec - not directly applicable to Textual Label CSS */
     }
 
     Header {
@@ -333,9 +311,17 @@ class DiceRollerApp(App[None]):
     TITLE = "🎲 Multi-Dice Roller"
 
     BINDINGS = [
-        Binding("r", "roll_all_dice", "Roll Dice", show=True),
-        Binding("space", "roll_all_dice", "Roll Dice", show=False), # Show=False for alternative keys
-        Binding("enter", "roll_all_dice", "Roll Dice", show=False),
+        Binding("r", "roll_unlocked_dice", "Roll Unlocked Dice", show=True), # Changed action
+        Binding("enter", "roll_unlocked_dice", "Roll Unlocked Dice", show=False), # Changed action
+        Binding("space", "toggle_lock", "Lock/Unlock Die", show=True), # Changed
+
+        Binding("up", "navigate_dice('up')", "Navigate Up", show=False),
+        Binding("down", "navigate_dice('down')", "Navigate Down", show=False),
+        Binding("left", "navigate_dice('left')", "Navigate Left", show=False),
+        Binding("right", "navigate_dice('right')", "Navigate Right", show=False),
+
+        Binding("ctrl+l", "lock_all", "Lock All", show=True),
+        Binding("ctrl+u", "unlock_all", "Unlock All", show=True),
 
         Binding("+", "add_die", "Add Die", show=True),
         Binding("=", "add_die", "Add Die", show=False), # Alias for +
@@ -359,10 +345,12 @@ class DiceRollerApp(App[None]):
     # Reactive properties
     dice_count: reactive[int] = reactive(1)
     is_rolling: reactive[bool] = reactive(False)
-    current_results: reactive[List[int]] = reactive(lambda: [1]) # Default to one die showing 1
-    current_sum: reactive[int] = reactive(1)
-    current_frequencies_str: reactive[str] = reactive("1x⚀")
-    app_roll_count: reactive[int] = reactive(0) # Total rolls in the session
+    current_results: reactive[List[int]] = reactive([]) # Default to empty list
+    current_sum: reactive[int] = reactive(0) # Adjusted due to empty results
+    current_frequencies_str: reactive[str] = reactive("No results yet") # Adjusted
+    selected_die_index: reactive[int] = reactive(0) # Added from spec
+    locked_dice: reactive[set[int]] = reactive(set) # Added from spec
+    app_roll_count: reactive[int] = reactive(0) # Total rolls in thesession
 
     # Maximum number of dice
     MAX_DICE = 8
@@ -372,13 +360,36 @@ class DiceRollerApp(App[None]):
     # Using a list to store references to the Label widgets for the dice.
     dice_widgets: List[Label] = []
 
+    # --- Visual State Update Method ---
+    def update_dice_visual_states(self) -> None:
+        """
+        Updates the visual state (CSS classes for .selected and .locked) of all dice widgets
+        based on the current `self.selected_die_index` and `self.locked_dice` set.
+        """
+        if not self.dice_widgets: # No widgets to update
+            return
+
+        for i, die_widget in enumerate(self.dice_widgets):
+            die_widget.remove_class("selected", "locked") # Clear existing states
+
+            is_selected = (i == self.selected_die_index)
+            is_locked = (i in self.locked_dice)
+
+            if is_selected:
+                die_widget.add_class("selected")
+
+            if is_locked:
+                die_widget.add_class("locked")
+
+            # If a die is both selected and locked, it will have both classes.
+            # CSS specificity or class order might matter if styles conflict.
+            # Current CSS for .selected and .locked should compose reasonably.
 
     def on_mount(self) -> None:
-        """Called when the app is first mounted."""
-        # Terminal capability check (basic size check)
-        # capabilities = detect_terminal_capabilities() # self.size is preferred in on_mount
-        min_width = 60  # Adjusted minimum width for warning
-        min_height = 20 # Adjusted minimum height for warning
+        """Called when the app is first mounted. Initializes subtitle and UI elements."""
+        # Basic terminal size check.
+        min_width = 60
+        min_height = 20
 
         # Use self.size for current terminal dimensions available from Textual App
         actual_width, actual_height = self.size
@@ -391,9 +402,10 @@ class DiceRollerApp(App[None]):
             )
 
         self.sub_title = f"{self.dice_count} die | Sum: {self.current_sum} | Roll #{self.app_roll_count}"
-        self.update_dice_grid_display() # Initial setup of dice widgets
+        self.update_dice_grid_display() # Initial setup of dice widgets (creates widgets)
         self.update_stats_display()
         self.update_button_states() # Ensure button states are correct on mount
+        self.call_later(self.update_dice_visual_states) # Ensure it runs after initial dice are created
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -432,15 +444,26 @@ class DiceRollerApp(App[None]):
         if dice_count_labels:
             dice_count_labels.first(Label).update(f"Dice: {new_value}")
 
-        self.update_dice_grid_display()
-        # Reset results when dice count changes, or adjust as per spec
-        self.current_results = [1] * new_value
+        self.update_dice_grid_display() # This recreates dice_widgets
+        # Reset results when dice count changes
+        if self.dice_count > 0:
+             self.current_results = [1] * new_value # Default to 1s if dice exist
+        else:
+             self.current_results = []
+
+        # Clamp selected_die_index if it's out of bounds
+        if self.selected_die_index >= self.dice_count and self.dice_count > 0:
+            self.selected_die_index = self.dice_count - 1
+        elif self.dice_count == 0:
+            self.selected_die_index = 0
+
         self.update_stats_display() # Update sum/freq for new default dice
+        self.call_later(self.update_dice_visual_states) # Update visuals for new grid
 
         # Adapt main container layout to dice count (from spec's pseudocode)
-        # Ensure main_container and roll_button also exist before querying them if there's a similar risk
-        # For now, assuming they are less problematic or handled if errors arise.
-        # A more robust solution might involve checking self.is_mounted or a similar flag.
+        # Ensure main_container and roll_button also exist before querying them.
+        # A more robust solution might involve checking self.is_mounted for these elements
+        # if errors occur during very early/rapid dice_count changes.
         try:
             main_container = self.query_one("#main-container")
             roll_button = self.query_one("#roll-button", Button)
@@ -487,6 +510,17 @@ class DiceRollerApp(App[None]):
         """Update header subtitle when sum changes."""
         self.update_header_subtitle()
 
+    async def watch_selected_die_index(self, old_index: int, new_index: int) -> None:
+        """Called when selected_die_index changes."""
+        self.update_dice_visual_states()
+
+    async def watch_locked_dice(self, old_set: set[int], new_set: set[int]) -> None:
+        """Called when locked_dice changes."""
+        # Ensure this is triggered correctly. For sets, direct mutation might not trigger.
+        # If issues, assign a new set: self.locked_dice = new_set_instance
+        self.update_dice_visual_states()
+
+
     # --- UI Update Methods ---
 
     def update_header_subtitle(self) -> None:
@@ -507,31 +541,36 @@ class DiceRollerApp(App[None]):
         self.dice_widgets.clear()
         grid.remove_children()
 
-        if self.dice_count == 0: # Should not happen based on MIN_DICE
-            grid.styles.grid_size_columns = 1
-            grid.styles.grid_size_rows = 1
-            return
+        # Calculate optimal grid dimensions using the new function
+        cols, rows = get_grid_layout_dimensions(self.dice_count)
 
-        # Calculate optimal grid dimensions
-        dims = calculateOptimalGrid(self.dice_count)
+        if cols == 0 or rows == 0: # Handles dice_count == 0
+            # Ensure grid is effectively empty or hidden, no specific classes needed.
+            # Textual might handle grid-size 0,0 by making it disappear.
+            # Or, set a very small size / display: none if required.
+            # For now, assuming removing children and not adding classes is enough.
+            # We can also explicitly set grid.styles.grid_size_columns = 0 etc.
+            # Let's clear any existing grid-NXM classes if any were set.
+            current_classes = list(grid.classes)
+            for css_class in current_classes:
+                if css_class.startswith("grid-") and 'x' in css_class:
+                    grid.remove_class(css_class)
+            # Optionally set grid.styles.display = "none" or grid.styles.width/height = 0
+            return # No dice to display
 
         # Remove existing grid classes
         # A more robust way to remove only our specific grid classes
         current_classes = list(grid.classes) # Get a copy
         for css_class in current_classes:
             if css_class.startswith("grid-") and 'x' in css_class: # e.g. "grid-2x2"
-                try:
-                    # Validate it's one of our defined grid classes before removing
-                    parts = css_class.replace("grid-", "").split('x')
-                    if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                         grid.remove_class(css_class)
-                except ValueError: # or other parsing error
-                    pass # Not one of our grid classes
+                # Basic check, assumes our classes are well-formed like "grid-1x1"
+                grid.remove_class(css_class)
 
-        # Apply new grid class
-        if dims.columns > 0 and dims.rows > 0:
-            grid.add_class(f"grid-{dims.columns}x{dims.rows}")
-        # If no dice, grid will be empty and no specific class needed, or a default.
+        # Apply new grid class based on cols and rows from get_grid_layout_dimensions
+        # The CSS classes .grid-XxY are responsible for setting grid-size-columns and grid-size-rows
+        if cols > 0 and rows > 0:
+            grid.add_class(f"grid-{cols}x{rows}")
+        # else: If cols/rows are 0 (e.g. dice_count is 0), no class is added, grid remains empty.
 
         # Create and add new dice labels
         dice_emojis = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"] # Index 0 unused
@@ -594,7 +633,7 @@ class DiceRollerApp(App[None]):
         elif button_id == "reset-button":
             self.action_reset_dice()
         elif button_id == "roll-button":
-            self.call_later(self.action_roll_all_dice) # Use call_later for async actions from sync handlers
+            self.call_later(self.action_roll_unlocked_dice) # Use call_later for async actions from sync handlers
 
 
     def action_add_die(self) -> None:
@@ -626,97 +665,238 @@ class DiceRollerApp(App[None]):
             if self.dice_count != count:
                 self.dice_count = count
                 self.notify(f"Set dice count to {self.dice_count}.", timeout=1.5)
-            # else:
-                # self.notify(f"Dice count is already {self.dice_count}.", timeout=1.5)
         else:
             self.notify(f"Dice count must be between {self.MIN_DICE} and {self.MAX_DICE}.", severity="error", timeout=2)
         self.update_button_states()
 
     def action_reset_dice(self) -> None:
-        """Resets all dice to their default state (face 1) and clears stats for current dice count."""
+        """
+        Resets all dice to face '1', clears the session roll count, and unlocks all dice.
+        """
         if self.is_rolling: return
-        self.current_results = [1] * self.dice_count
-        self.app_roll_count = 0 # Reset session roll count as per spec interpretation
-        # self.current_sum and self.current_frequencies_str are updated by watch_current_results -> update_stats_display
-        # self.sub_title is updated by watch_app_roll_count & watch_current_sum -> update_header_subtitle
+        if self.dice_count > 0:
+            self.current_results = [1] * self.dice_count
+        else:
+            self.current_results = []
+        self.app_roll_count = 0
+        self.locked_dice = set()
+        # Optionally, self.selected_die_index could be reset to 0.
         self.notify("Dice and session stats reset.", timeout=2)
-        # Individual die widgets are updated by watch_current_results
         self.update_button_states()
+        self.call_later(self.update_dice_visual_states)
 
-    # --- Animation Logic ---
-    async def animate_die(self, die_widget: Label, duration: float) -> None:
-        """Animates a single die widget for a given duration."""
-        if not die_widget:
+    # --- Action Methods for Navigation and Locking ---
+
+    def action_navigate_dice(self, direction: str) -> None:
+        """
+        Navigates the selection focus (`self.selected_die_index`) up, down, left, or right
+        among the dice in the grid, based on the `direction` string.
+        """
+        if self.is_rolling or self.dice_count == 0:
             return
 
-        num_frames = int(duration * 20) # Aim for 20fps
-        delay_per_frame = duration / num_frames
+        current = self.selected_die_index
+        dice_count = self.dice_count
+
+        # Grid columns mapping from spec
+        cols_map = {1:1, 2:2, 3:3, 4:2, 5:3, 6:3, 7:4, 8:4}
+        cols = cols_map.get(dice_count, 1) # Default to 1 col if dice_count not in map (e.g. 0)
+        if dice_count == 0: # avoid division by zero or unexpected behavior with cols=0
+            cols = 1
+
+
+        new_index = current
+        if direction == "up":
+            new_index = max(0, current - cols)
+        elif direction == "down":
+            new_index = min(dice_count - 1, current + cols)
+        elif direction == "left":
+            new_index = max(0, current - 1)
+        elif direction == "right":
+            new_index = min(dice_count - 1, current + 1)
+
+        if new_index != current:
+            self.selected_die_index = new_index
+            # Watcher for selected_die_index will call update_dice_visual_states
+
+    def action_toggle_lock(self) -> None:
+        """
+        Toggles the lock state of the currently selected die (`self.selected_die_index`).
+        If the die is locked, it becomes unlocked, and vice-versa.
+        Updates `self.locked_dice` reactively.
+        """
+        if self.is_rolling or self.dice_count == 0:
+            return
+
+        idx = self.selected_die_index
+        new_locked_set = self.locked_dice.copy() # Important: work with a copy for reactive update
+        if idx in new_locked_set:
+            new_locked_set.remove(idx)
+            self.notify(f"Die {idx+1} unlocked.", timeout=1)
+        else:
+            new_locked_set.add(idx)
+            self.notify(f"Die {idx+1} locked.", timeout=1)
+        self.locked_dice = new_locked_set
+
+    def action_lock_all(self) -> None:
+        """Locks all currently displayed dice."""
+        if self.is_rolling or self.dice_count == 0:
+            return
+        new_locked_set = set(range(self.dice_count))
+        if new_locked_set != self.locked_dice:
+            self.locked_dice = new_locked_set
+            self.notify("All dice locked.", timeout=1)
+        else:
+            self.notify("All dice already locked.", timeout=1)
+
+    def action_unlock_all(self) -> None:
+        """Unlocks all currently displayed dice."""
+        if self.is_rolling or self.dice_count == 0:
+            return
+        if self.locked_dice:
+            self.locked_dice = set()
+            self.notify("All dice unlocked.", timeout=1)
+        else:
+            self.notify("All dice already unlocked.", timeout=1)
+
+    # --- Animation Logic ---
+    async def animate_single_die(self, die_widget_index: int, duration: float) -> int:
+        """
+        Animates a single die widget specified by `die_widget_index` for a given `duration`.
+        The animation consists of rapidly changing emoji faces.
+        The die widget gets a temporary '.rolling' CSS class during animation.
+        Returns the final numerical result (1-6) of the die roll.
+        """
+        if not (0 <= die_widget_index < len(self.dice_widgets)):
+            return 1 # Should not happen if called correctly
+
+        die_widget = self.dice_widgets[die_widget_index]
+
         dice_emojis = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+        # Animation frames: duration / 0.05s/frame (for 20fps)
+        frames = int(duration / 0.05)
+        if frames <= 0: frames = 1 # Ensure at least one frame for quick update
 
-        original_classes = die_widget.classes
-        die_widget.add_class("rolling") # Add a class for potential styling during roll
+        die_widget.add_class("rolling")
 
-        for _ in range(num_frames):
-            random_face = secrets.choice(dice_emojis)
-            die_widget.update(Text(random_face, justify="center"))
-            await asyncio.sleep(delay_per_frame)
+        for _ in range(frames):
+            random_face_emoji = secrets.choice(dice_emojis)
+            die_widget.update(Text(random_face_emoji, justify="center"))
+            await asyncio.sleep(0.05) # 20fps
 
-        # Restore original classes, remove 'rolling'
-        # This is a simple way; Textual 0.50+ offers set_classes
-        current_classes = [c for c in die_widget.classes if c != "rolling"]
-        die_widget.classes = " ".join(current_classes)
-        # For older Textual versions, you might need to remove and re-add specific classes
-        # or ensure "rolling" is removed if you added other animation-specific classes.
+        # Generate final result for this die
+        final_result_value = secrets.randbelow(6) + 1
+        final_result_emoji = dice_emojis[final_result_value - 1]
+        die_widget.update(Text(final_result_emoji, justify="center"))
 
-        # The final face will be set by watch_current_results after all animations complete.
-        # Here, we can reset it to a neutral or the last random face.
-        # die_widget.update(Text(secrets.choice(dice_emojis), justify="center")) # Optional: leave on last random face
+        die_widget.remove_class("rolling")
+        # Visual state (selected/locked) is handled by update_dice_visual_states after results.
+        return final_result_value
 
     # --- Core Dice Rolling Logic ---
 
-    async def action_roll_all_dice(self) -> None:
-        """Handles the logic for rolling all active dice."""
+    async def action_roll_unlocked_dice(self) -> None:
+        """
+        Handles the core logic for rolling dice:
+        1. Identifies unlocked dice.
+        2. If no dice are unlocked, notifies the user.
+        3. Otherwise, for each unlocked die:
+            a. Generates a random animation duration.
+            b. Creates an animation task (`animate_single_die`).
+        4. Gathers results from all animation tasks.
+        5. Updates `self.current_results` with the new values for rolled dice.
+        6. Increments `self.app_roll_count`.
+        7. Sets `self.is_rolling` to False and updates UI states.
+        """
         if self.is_rolling:
             return
 
-        self.is_rolling = True # This will trigger button state updates via its watcher
+        if self.dice_count == 0:
+            self.notify("No dice to roll.", severity="warning", timeout=2)
+            return
 
-        # --- Animation Phase ---
-        self.notify("Rolling dice...", timeout=0.2) # Brief notification
+        unlocked_indices = [i for i in range(self.dice_count) if i not in self.locked_dice]
 
-        animation_tasks = []
-        if self.dice_count > 0 and self.dice_widgets:
-            for i in range(self.dice_count):
-                if i < len(self.dice_widgets):
-                    die_widget = self.dice_widgets[i]
-                    # Duration for each die's animation is random (0.3s to 0.6s)
-                    anim_duration = secrets.uniform(0.3, 0.6)
-                    animation_tasks.append(self.animate_die(die_widget, anim_duration))
+        if not unlocked_indices:
+            self.notify("All dice are locked. Nothing to roll.", severity="info", timeout=2)
+            roll_button = self.query_one("#roll-button", Button)
+            if self.dice_count == 1 :
+                 roll_button.label = Text("🎲 Roll Die")
+            else:
+                 roll_button.label = Text(f"🎲 Roll {self.dice_count} Dice")
+            return
 
-            if animation_tasks:
-                await asyncio.gather(*animation_tasks)
-            else: # Fallback if somehow no tasks were created despite dice_count > 0
-                await asyncio.sleep(0.5) # Default wait
-        else:
-            # No dice to animate, but still ensure a small delay if needed for flow
-            await asyncio.sleep(0.1)
+        self.is_rolling = True
+        self.notify("Rolling unlocked dice...", timeout=0.2)
+
+        tasks = []
+        for index in unlocked_indices:
+            anim_duration = random_float(0.3, 0.6)
+            tasks.append(asyncio.create_task(self.animate_single_die(index, anim_duration)))
+
+        results_for_unlocked_dice: List[int] = []
+        if tasks:
+            try:
+                results_for_unlocked_dice = await asyncio.gather(*tasks)
+            except Exception as e:
+                self.notify(f"Animation error: {e}", severity="error", timeout=3)
+                self.is_rolling = False
+                self.call_later(self.update_dice_visual_states)
+                return
+        # No 'else' needed here, if tasks is empty, results_for_unlocked_dice remains empty.
+        # This case is already handled by 'if not unlocked_indices' check.
 
         # --- Results Phase ---
-        new_results = []
-        if self.dice_count > 0:
-            for _ in range(self.dice_count):
-                new_results.append(secrets.randbelow(6) + 1) # Generate 1-6
-            self.current_results = new_results # This will trigger watchers to update faces and stats
-            self.app_roll_count += 1
-            self.notify(f"Roll #{self.app_roll_count} results: {self.current_sum}", timeout=2)
-        else:
-            self.notify("No dice to roll.", severity="warning", timeout=2)
-            self.current_results = [] # Clear results if no dice
+        new_results_list = list(self.current_results)
 
-        self.is_rolling = False # This will re-enable buttons via its watcher
+        if len(new_results_list) != self.dice_count:
+             new_results_list = [1] * self.dice_count # Safeguard
+
+        rolled_at_least_one = False
+        # Ensure results from gather match the number of tasks/unlocked_indices
+        if len(unlocked_indices) == len(results_for_unlocked_dice):
+            for i, actual_die_index in enumerate(unlocked_indices):
+                # actual_die_index is the true index in self.dice_widgets / self.current_results
+                # results_for_unlocked_dice[i] is the result for that die
+                if 0 <= actual_die_index < self.dice_count: # Bounds check
+                    new_results_list[actual_die_index] = results_for_unlocked_dice[i]
+                    rolled_at_least_one = True
+        else:
+            # This indicates a mismatch, should not happen if asyncio.gather worked as expected.
+            self.notify("Error processing roll results (result/index mismatch).", severity="error", timeout=3)
+            self.is_rolling = False
+            self.call_later(self.update_dice_visual_states)
+            return
+
+        if rolled_at_least_one:
+            self.current_results = new_results_list
+            self.app_roll_count += 1
+            self.notify(f"Roll #{self.app_roll_count} completed. Sum: {self.current_sum}", timeout=2)
+        else:
+            # This might happen if unlocked_indices was empty but the initial check failed,
+            # or if all animations returned errors (though gather would likely raise one).
+            self.notify("No dice were effectively rolled.", severity="warning", timeout=2)
+
+        self.is_rolling = False
+        self.call_later(self.update_dice_visual_states)
 
 # --- End Main Application Class ---
 
 if __name__ == "__main__":
     app = DiceRollerApp()
-    app.run()
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        # Textual apps handle terminal restoration. A simple message is sufficient.
+        print("\nApplication terminated by user (Ctrl+C).")
+        # sys.exit(0) is often implicit or handled by Textual's graceful exit.
+    except Exception as e:
+        # Basic error logging to stderr for unexpected errors.
+        import traceback
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        print("Traceback (most recent call last):", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        # Attempt to ensure terminal is restored if app crashed badly.
+        # Textual aims to do this, but this is a fallback message.
+        # Consider if more specific cleanup is needed for non-Textual resources.
+        sys.exit(1) # Exit with error code 1 for unexpected exceptions
