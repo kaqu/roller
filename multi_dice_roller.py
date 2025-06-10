@@ -8,6 +8,8 @@ import asyncio
 import secrets
 import sys
 import random
+import os
+import shutil
 from enum import Enum # auto removed as DiceState is removed
 from dataclasses import dataclass # field removed as ValidationResult is removed
 from typing import List, Tuple, Dict, Optional, Callable
@@ -79,30 +81,27 @@ def format_frequencies(frequencies: Dict[int, int]) -> str:
     return " | ".join(parts) if parts else "No results yet"
 
 def detect_terminal_capabilities() -> dict:
-    """Basic terminal capability detection.
-    For now, just gets size. Could be expanded.
-    (This function is currently not used in the application and will be removed)
-    """
-    # In a Textual app, self.app.size is preferred once the app is running.
-    # This is a more general placeholder.
+    """Detect terminal dimensions and basic feature support."""
     try:
-        import shutil # shutil is only used here
         columns, rows = shutil.get_terminal_size()
-        return {
-            "width": columns,
-            "height": rows,
-            "truecolor": True, # Assuming modern terminal for now
-            "emoji": True      # Assuming modern terminal for now
-        }
     except Exception:
-        return {
-            "width": 80, # Default
-            "height": 24, # Default
-            "truecolor": False,
-            "emoji": False
-        }
+        columns, rows = 80, 24
 
-# Unused validate_multi_dice_randomness and detect_terminal_capabilities functions will be removed.
+    emoji_support = (
+        sys.platform != "win32"
+        and ("UTF-8" in os.environ.get("LC_CTYPE", "")
+             or "UTF-8" in os.environ.get("LANG", ""))
+    )
+    truecolor = os.environ.get("COLORTERM", "") in {"truecolor", "24bit"}
+
+# --- End Utility Functions ---
+    return {
+        "width": columns,
+        "height": rows,
+        "truecolor": truecolor,
+        "emoji": emoji_support,
+    }
+
 # --- End Utility Functions ---
 
 # --- Random Float Utility (as per spec) ---
@@ -138,6 +137,37 @@ def random_float(min_val: float, max_val: float) -> float:
             normalized_float = normalized_int / max_int_val
 
     return min_val + normalized_float * (max_val - min_val)
+
+# --- Animation Controller Class ---
+class DiceAnimationController:
+    """Handles die animations independently from the main app."""
+
+    def __init__(self, dice_widgets: List[Label], emojis: List[str]):
+        self.dice_widgets = dice_widgets
+        self.emojis = emojis
+
+    @staticmethod
+    def generate_random_duration() -> float:
+        """Return a secure random duration between 0.3 and 0.6 seconds."""
+        return random_float(0.3, 0.6)
+
+    async def animate_single_die(self, index: int, duration: float) -> int:
+        if not (0 <= index < len(self.dice_widgets)):
+            return 1
+        die_widget = self.dice_widgets[index]
+        frames = int(duration / 0.05) or 1
+        die_widget.add_class("rolling")
+        for _ in range(frames):
+            die_widget.update(Text(secrets.choice(self.emojis), justify="center"))
+            await asyncio.sleep(0.05)
+        result = secrets.randbelow(6) + 1
+        die_widget.update(Text(self.emojis[result - 1], justify="center"))
+        die_widget.remove_class("rolling")
+        return result
+
+    async def animate_all_dice(self, indices: List[int]) -> List[int]:
+        tasks = [asyncio.create_task(self.animate_single_die(i, self.generate_random_duration())) for i in indices]
+        return await asyncio.gather(*tasks)
 
 # --- Main Application Class ---
 
@@ -360,6 +390,9 @@ class DiceRollerApp(App[None]):
     # Placeholder for dice widgets. We will populate this in on_mount or when dice_count changes.
     # Using a list to store references to the Label widgets for the dice.
     dice_widgets: List[Label] = []
+    dice_emojis: List[str] = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+    terminal_caps: Dict[str, object] = {}
+    animation_controller: Optional[DiceAnimationController] = None
 
     # --- Visual State Update Method ---
     def update_dice_visual_states(self) -> None:
@@ -388,22 +421,25 @@ class DiceRollerApp(App[None]):
 
     def on_mount(self) -> None:
         """Called when the app is first mounted. Initializes subtitle and UI elements."""
-        # Basic terminal size check.
+        self.terminal_caps = detect_terminal_capabilities()
+
         min_width = 60
         min_height = 20
-
-        # Use self.size for current terminal dimensions available from Textual App
-        actual_width, actual_height = self.size
-
+        actual_width, actual_height = self.terminal_caps.get("width", 80), self.terminal_caps.get("height", 24)
         if actual_width < min_width or actual_height < min_height:
             self.notify(
                 f"Terminal may be too small ({actual_width}x{actual_height}). Recommended minimum: {min_width}x{min_height}.",
                 severity="warning",
-                timeout=5 # Show warning for a bit longer
+                timeout=5,
             )
 
+        if not self.terminal_caps.get("emoji", True):
+            self.dice_emojis = ["1", "2", "3", "4", "5", "6"]
+            self.notify("Emoji support not detected. Falling back to numbers.", severity="warning", timeout=4)
+
         self.sub_title = f"{self.dice_count} die | Sum: {self.current_sum} | Roll #{self.app_roll_count}"
-        self.update_dice_grid_display() # Initial setup of dice widgets (creates widgets)
+        self.update_dice_grid_display()  # Initial setup of dice widgets
+        self.animation_controller = DiceAnimationController(self.dice_widgets, self.dice_emojis)
         self.update_stats_display()
         self.update_button_states() # Ensure button states are correct on mount
         self.call_later(self.update_dice_visual_states) # Ensure it runs after initial dice are created
@@ -495,7 +531,7 @@ class DiceRollerApp(App[None]):
 
     def watch_current_results(self, old_results: List[int], new_results: List[int]) -> None:
         """Update dice faces when results change."""
-        dice_emojis = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+        dice_emojis = [""] + self.dice_emojis
         for i, widget in enumerate(self.dice_widgets):
             if i < len(new_results):
                 widget.update(Text(dice_emojis[new_results[i]], justify="center"))
@@ -579,13 +615,14 @@ class DiceRollerApp(App[None]):
         # else: If cols/rows are 0 (e.g. dice_count is 0), no class is added, grid remains empty.
 
         # Create and add new dice labels
-        dice_emojis = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"] # Index 0 unused
+        dice_emojis = [""] + self.dice_emojis
         for i in range(self.dice_count):
-            # Default to face '1' (⚀)
             initial_face = dice_emojis[self.current_results[i] if i < len(self.current_results) else 1]
             die_label = Label(Text(initial_face, justify="center"), classes="die-emoji-label", id=f"die-{i}")
             self.dice_widgets.append(die_label)
             grid.mount(die_label)
+
+        self.animation_controller = DiceAnimationController(self.dice_widgets, self.dice_emojis)
 
     def update_stats_display(self) -> None:
         """Updates the sum and frequency labels from current_results."""
@@ -765,40 +802,6 @@ class DiceRollerApp(App[None]):
         else:
             self.notify("All dice already unlocked.", timeout=1)
 
-    # --- Animation Logic ---
-    async def animate_single_die(self, die_widget_index: int, duration: float) -> int:
-        """
-        Animates a single die widget specified by `die_widget_index` for a given `duration`.
-        The animation consists of rapidly changing emoji faces.
-        The die widget gets a temporary '.rolling' CSS class during animation.
-        Returns the final numerical result (1-6) of the die roll.
-        """
-        if not (0 <= die_widget_index < len(self.dice_widgets)):
-            return 1 # Should not happen if called correctly
-
-        die_widget = self.dice_widgets[die_widget_index]
-
-        dice_emojis = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
-        # Animation frames: duration / 0.05s/frame (for 20fps)
-        frames = int(duration / 0.05)
-        if frames <= 0: frames = 1 # Ensure at least one frame for quick update
-
-        die_widget.add_class("rolling")
-
-        for _ in range(frames):
-            random_face_emoji = secrets.choice(dice_emojis)
-            die_widget.update(Text(random_face_emoji, justify="center"))
-            await asyncio.sleep(0.05) # 20fps
-
-        # Generate final result for this die
-        final_result_value = secrets.randbelow(6) + 1
-        final_result_emoji = dice_emojis[final_result_value - 1]
-        die_widget.update(Text(final_result_emoji, justify="center"))
-
-        die_widget.remove_class("rolling")
-        # Visual state (selected/locked) is handled by update_dice_visual_states after results.
-        return final_result_value
-
     # --- Core Dice Rolling Logic ---
 
     async def action_roll_unlocked_dice(self) -> None:
@@ -806,10 +809,9 @@ class DiceRollerApp(App[None]):
         Handles the core logic for rolling dice:
         1. Identifies unlocked dice.
         2. If no dice are unlocked, notifies the user.
-        3. Otherwise, for each unlocked die:
-            a. Generates a random animation duration.
-            b. Creates an animation task (`animate_single_die`).
-        4. Gathers results from all animation tasks.
+        3. Otherwise, animate each unlocked die in parallel using
+           ``DiceAnimationController``.
+        4. Gathers results from the controller.
         5. Updates `self.current_results` with the new values for rolled dice.
         6. Increments `self.app_roll_count`.
         7. Sets `self.is_rolling` to False and updates UI states.
@@ -835,20 +837,16 @@ class DiceRollerApp(App[None]):
         self.is_rolling = True
         self.notify("Rolling unlocked dice...", timeout=0.2)
 
-        tasks = []
-        for index in unlocked_indices:
-            anim_duration = random_float(0.3, 0.6)
-            tasks.append(asyncio.create_task(self.animate_single_die(index, anim_duration)))
+        if not self.animation_controller:
+            self.animation_controller = DiceAnimationController(self.dice_widgets, self.dice_emojis)
 
-        results_for_unlocked_dice: List[int] = []
-        if tasks:
-            try:
-                results_for_unlocked_dice = await asyncio.gather(*tasks)
-            except Exception as e:
-                self.notify(f"Animation error: {e}", severity="error", timeout=3)
-                self.is_rolling = False
-                self.call_later(self.update_dice_visual_states)
-                return
+        try:
+            results_for_unlocked_dice = await self.animation_controller.animate_all_dice(unlocked_indices)
+        except Exception as e:
+            self.notify(f"Animation error: {e}", severity="error", timeout=3)
+            self.is_rolling = False
+            self.call_later(self.update_dice_visual_states)
+            return
         # No 'else' needed here, if tasks is empty, results_for_unlocked_dice remains empty.
         # This case is already handled by 'if not unlocked_indices' check.
 
