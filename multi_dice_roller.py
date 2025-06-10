@@ -12,6 +12,7 @@
 import asyncio
 import secrets
 import sys
+import random
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Optional, Callable
@@ -504,6 +505,7 @@ class DiceRollerApp(App[None]):
         for widget in self.dice_widgets:
             widget.remove()
         self.dice_widgets.clear()
+        grid.remove_children()
 
         if self.dice_count == 0: # Should not happen based on MIN_DICE
             grid.styles.grid_size_columns = 1
