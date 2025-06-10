@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["textual>=0.70.0,<1.0.0", "rich>=13.0.0,<14.0.0"]
+# dependencies = ["textual>=3.3,<4.0.0", "rich>=13.0.0,<14.0.0"]
 # requires-python = ">=3.12"
 # ///
 
