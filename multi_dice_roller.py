@@ -426,31 +426,40 @@ class DiceRollerApp(App[None]):
 
     def watch_dice_count(self, old_value: int, new_value: int) -> None:
         """Called when dice_count changes."""
-        self.query_one("#dice-count-label", Label).update(f"Dice: {new_value}")
+        # Only update the label if it exists (i.e., compose() has run for this widget)
+        dice_count_labels = self.query("#dice-count-label")
+        if dice_count_labels:
+            dice_count_labels.first(Label).update(f"Dice: {new_value}")
+
         self.update_dice_grid_display()
         # Reset results when dice count changes, or adjust as per spec
         self.current_results = [1] * new_value
         self.update_stats_display() # Update sum/freq for new default dice
 
         # Adapt main container layout to dice count (from spec's pseudocode)
-        main_container = self.query_one("#main-container")
-        roll_button = self.query_one("#roll-button", Button) # Get roll_button reference
+        # Ensure main_container and roll_button also exist before querying them if there's a similar risk
+        # For now, assuming they are less problematic or handled if errors arise.
+        # A more robust solution might involve checking self.is_mounted or a similar flag.
+        try:
+            main_container = self.query_one("#main-container")
+            roll_button = self.query_one("#roll-button", Button)
 
-        if self.dice_count >= 7: # 7 to 8 dice
-            main_container.styles.width = "70"
-            main_container.styles.height = "28" # Approx, depends on content, increased slightly
-        elif self.dice_count >= 4: # 4 to 6 dice
-            main_container.styles.width = "60"
-            main_container.styles.height = "28" # Approx, increased slightly
-        else: # 1 to 3 dice
-            main_container.styles.width = "50"
-            main_container.styles.height = "22" # Approx, increased slightly
+            if self.dice_count >= 7: # 7 to 8 dice
+                main_container.styles.width = "70"
+                main_container.styles.height = "28"
+            elif self.dice_count >= 4: # 4 to 6 dice
+                main_container.styles.width = "60"
+                main_container.styles.height = "28"
+            else: # 1 to 3 dice
+                main_container.styles.width = "50"
+                main_container.styles.height = "22"
 
-        # Update roll button label (from spec's pseudocode)
-        if self.dice_count == 1:
-            roll_button.label = Text("🎲 Roll Die") # Use Text for Rich compatibility
-        else:
-            roll_button.label = Text(f"🎲 Roll {self.dice_count} Dice")
+            if self.dice_count == 1:
+                roll_button.label = Text("🎲 Roll Die")
+            else:
+                roll_button.label = Text(f"🎲 Roll {self.dice_count} Dice")
+        except Exception: # Catch potential NoMatches if these are also queried too early
+            pass # If they don't exist yet, their properties will be set by compose or later calls
 
         self.update_button_states()
 
@@ -485,7 +494,11 @@ class DiceRollerApp(App[None]):
 
     def update_dice_grid_display(self) -> None:
         """Update the dice grid based on the current dice_count."""
-        grid = self.query_one("#dice-grid-container", Grid)
+        grid_query = self.query("#dice-grid-container")
+        if not grid_query:
+            return # If the grid container doesn't exist yet, do nothing
+
+        grid = grid_query.first(Grid)
 
         # Clear existing dice widgets from the list and grid
         for widget in self.dice_widgets:
@@ -537,23 +550,32 @@ class DiceRollerApp(App[None]):
             frequencies = calculate_frequencies(self.current_results)
             self.current_frequencies_str = format_frequencies(frequencies)
 
-        self.query_one("#sum-display", Label).update(f"Sum: {self.current_sum}")
-        self.query_one("#frequency-display", Label).update(self.current_frequencies_str)
+        sum_display_query = self.query("#sum-display")
+        if sum_display_query:
+            sum_display_query.first(Label).update(f"Sum: {self.current_sum}")
+
+        frequency_display_query = self.query("#frequency-display")
+        if frequency_display_query:
+            frequency_display_query.first(Label).update(self.current_frequencies_str)
+
         self.update_header_subtitle() # Also update header as stats change
 
     def update_button_states(self) -> None:
         """Enable/disable buttons based on app state."""
-        roll_button = self.query_one("#roll-button", Button)
-        add_button = self.query_one("#add-die", Button)
-        remove_button = self.query_one("#remove-die", Button)
-        reset_button = self.query_one("#reset-button", Button)
+        try:
+            roll_button = self.query_one("#roll-button", Button)
+            add_button = self.query_one("#add-die", Button)
+            remove_button = self.query_one("#remove-die", Button)
+            reset_button = self.query_one("#reset-button", Button)
 
-        roll_button.disabled = self.is_rolling
-        reset_button.disabled = self.is_rolling
-        add_button.disabled = self.is_rolling or self.dice_count >= self.MAX_DICE
-        remove_button.disabled = self.is_rolling or self.dice_count <= self.MIN_DICE
+            roll_button.disabled = self.is_rolling
+            reset_button.disabled = self.is_rolling
+            add_button.disabled = self.is_rolling or self.dice_count >= self.MAX_DICE
+            remove_button.disabled = self.is_rolling or self.dice_count <= self.MIN_DICE
 
-        # Disable number keys for dice count if rolling (will be handled in key bindings)
+            # Disable number keys for dice count if rolling (will be handled in key bindings)
+        except Exception: # Covers NoMatches if buttons aren't there yet
+            pass
 
     # --- Action Methods for Dice Management ---
 
