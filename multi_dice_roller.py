@@ -155,8 +155,9 @@ class DiceRollerApp(App[None]):
 
     #main-container {
         align: center middle; /* Added from spec */
-        width: auto; /* Start with auto, will be adjusted by dice count */
-        height: auto; /* Start with auto, will be adjusted by dice count */
+        min-width: 50; /* Add this line */
+        width: auto; /* Will be overridden by Python if successful */
+        height: auto; /* Will be overridden by Python if successful */
         max-width: 90; /* As per spec */
         background: $panel;
         border: heavy $primary;
@@ -536,10 +537,15 @@ class DiceRollerApp(App[None]):
         grid = grid_query.first(Grid)
 
         # Clear existing dice widgets from the list and grid
-        for widget in self.dice_widgets:
-            widget.remove()
-        self.dice_widgets.clear()
+        # Call grid.remove_children() first to ensure all children are detached from the grid.
         grid.remove_children()
+
+        # Then, iterate through the known dice_widgets to ensure they are fully removed
+        # from the app's perspective (e.g., ID unregistration, other cleanup).
+        # At this point, their parent should be None.
+        for widget in self.dice_widgets:
+            widget.remove() # This should handle Textual's internal cleanup for the widget.
+        self.dice_widgets.clear() # Clear our Python list of references.
 
         # Calculate optimal grid dimensions using the new function
         cols, rows = get_grid_layout_dimensions(self.dice_count)
