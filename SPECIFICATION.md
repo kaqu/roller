@@ -6,7 +6,7 @@
 
 **Platform Requirements:**
 - macOS 12.0+, terminal 80×30 minimum, Unicode emoji support
-- Python 3.12+ via uv, Textual 0.70+, Rich 13.0+
+- Python 3.12+ via uv, Textual 3.3+, Rich 13.0+
 - No external dependencies, offline operation, single executable file
 
 **Technical Scope:** Independent die animations (0.3-0.6s random duration), arrow key navigation, space bar locking, cryptographic randomness, responsive grid layouts (1×1 to 4×2), real-time statistics.
@@ -113,7 +113,7 @@ Stats (sum/freq) → ActionButtons (roll/reset) → Footer (help)
 ```python
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["textual>=0.70.0,<1.0.0", "rich>=13.0.0,<14.0.0"]
+# dependencies = ["textual>=3.3,<4.0.0", "rich>=13.0.0,<14.0.0"]
 # requires-python = ">=3.12"
 # ///
 ```
@@ -191,7 +191,7 @@ TRY:
 EXCEPT KeyboardInterrupt:
     CLEANUP animations, RESTORE terminal, EXIT 0
 EXCEPT ImportError:
-    DISPLAY "Run: uv cache clean && uv run script.py", EXIT 1
+    DISPLAY "Run: uv cache clean && uv run multi_dice_roller.py", EXIT 1
 EXCEPT Exception:
     LOG error, CLEANUP state, EXIT 1
 ```
