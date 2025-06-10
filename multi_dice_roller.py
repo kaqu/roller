@@ -10,6 +10,7 @@ import sys
 import random
 import os
 import shutil
+import uuid
 from enum import Enum # auto removed as DiceState is removed
 from dataclasses import dataclass # field removed as ValidationResult is removed
 from typing import List, Tuple, Dict, Optional, Callable
@@ -185,10 +186,10 @@ class DiceRollerApp(App[None]):
 
     #main-container {
         align: center middle; /* Added from spec */
-        min-width: 50; /* Add this line */
-        width: auto; /* Will be overridden by Python if successful */
-        height: auto; /* Will be overridden by Python if successful */
-        max-width: 90; /* As per spec */
+        min-width: 50;
+        width: 100%; /* Expand to available width */
+        height: auto;
+        max-width: none; /* No upper limit so container can fill the terminal */
         background: $panel;
         border: heavy $primary;
         margin: 1; /* Simplified from 1 2 */
@@ -505,22 +506,15 @@ class DiceRollerApp(App[None]):
             main_container = self.query_one("#main-container")
             roll_button = self.query_one("#roll-button", Button)
 
-            if self.dice_count >= 7: # 7 to 8 dice
-                main_container.styles.width = "70"
-                main_container.styles.height = "28"
-            elif self.dice_count >= 4: # 4 to 6 dice
-                main_container.styles.width = "60"
-                main_container.styles.height = "28"
-            else: # 1 to 3 dice
-                main_container.styles.width = "50"
-                main_container.styles.height = "22"
+            main_container.styles.width = "100%"  # Fill available width
+            main_container.styles.height = "auto"
 
             if self.dice_count == 1:
                 roll_button.label = Text("🎲 Roll Die")
             else:
                 roll_button.label = Text(f"🎲 Roll {self.dice_count} Dice")
-        except Exception: # Catch potential NoMatches if these are also queried too early
-            pass # If they don't exist yet, their properties will be set by compose or later calls
+        except Exception:  # Catch potential NoMatches if these are also queried too early
+            pass  # If they don't exist yet, their properties will be set by compose or later calls
 
         self.update_button_states()
 
@@ -618,7 +612,8 @@ class DiceRollerApp(App[None]):
         dice_emojis = [""] + self.dice_emojis
         for i in range(self.dice_count):
             initial_face = dice_emojis[self.current_results[i] if i < len(self.current_results) else 1]
-            die_label = Label(Text(initial_face, justify="center"), classes="die-emoji-label", id=f"die-{i}")
+            unique_id = f"die-{i}-{uuid.uuid4().hex}"
+            die_label = Label(Text(initial_face, justify="center"), classes="die-emoji-label", id=unique_id)
             self.dice_widgets.append(die_label)
             grid.mount(die_label)
 
