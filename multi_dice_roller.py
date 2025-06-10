@@ -35,6 +35,21 @@ except ImportError:
 # Unused DiceState, GridDimensions, StatisticsInfo, ValidationResult removed.
 # --- End Enums and Data Classes ---
 
+# --- Large ASCII die faces ---
+
+# Dice face representations using simple ASCII pips. Each value is a
+# multiline string that fits within the default 8x4 cell used by the CSS
+# style.  These are wider than the original emoji faces so they appear
+# more prominent in terminals where the emoji were rendered very small.
+DICE_ART: Dict[int, str] = {
+    1: "   \n  ●  \n   ",
+    2: "●    \n     \n    ●",
+    3: "●    \n  ●  \n    ●",
+    4: "●   ●\n     \n●   ●",
+    5: "●   ●\n  ●  \n●   ●",
+    6: "●   ●\n●   ●\n●   ●",
+}
+
 # --- Utility Functions ---
 
 def get_grid_layout_dimensions(dice_count: int) -> Tuple[int, int]:
@@ -391,7 +406,8 @@ class DiceRollerApp(App[None]):
     # Placeholder for dice widgets. We will populate this in on_mount or when dice_count changes.
     # Using a list to store references to the Label widgets for the dice.
     dice_widgets: List[Label] = []
-    dice_emojis: List[str] = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+    # Use larger ASCII representations instead of small emoji faces
+    dice_emojis: List[str] = [DICE_ART[i] for i in range(1, 7)]
     terminal_caps: Dict[str, object] = {}
     animation_controller: Optional[DiceAnimationController] = None
 
@@ -436,7 +452,11 @@ class DiceRollerApp(App[None]):
 
         if not self.terminal_caps.get("emoji", True):
             self.dice_emojis = ["1", "2", "3", "4", "5", "6"]
-            self.notify("Emoji support not detected. Falling back to numbers.", severity="warning", timeout=4)
+            self.notify(
+                "Emoji support not detected. Falling back to numbers.",
+                severity="warning",
+                timeout=4,
+            )
 
         self.sub_title = f"{self.dice_count} die | Sum: {self.current_sum} | Roll #{self.app_roll_count}"
         self.update_dice_grid_display()  # Initial setup of dice widgets
