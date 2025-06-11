@@ -209,30 +209,8 @@ class DiceRollerApp(App[None]):
         padding: 1 1; /* Reduced padding slightly */
     }
 
-    .dice-controls-container { /* Renamed from .dice-controls from spec */
-        align: center middle;
-        width: 100%;
-        height: 5; /* From spec */
-        margin-bottom: 1; /* From spec */
-    }
-
-    #dice-count-label { /* Renamed from #dice-count from spec */
-        width: 1fr; /* Changed from fixed width to be more flexible */
-        max-width: 14; /* Max width for the label */
-        height: 3; /* Explicit height */
-        text-align: center;
-        margin: 0 1; /* Reduced margin */
-        content-align: center middle;
-        background: $accent;
-        color: $text;
-        border: solid $primary;
-    }
-
-    #add-die, #remove-die {
-        width: 6; /* From spec */
-        height: 3; /* From spec */
-        min-height: 3; /* From spec */
-    }
+    /* Dice count controls were removed from the interface, so related styles
+       have been deleted. */
 
     #dice-grid-container { /* Renamed from #dice-grid from spec */
         width: 100%;
@@ -477,11 +455,7 @@ class DiceRollerApp(App[None]):
         yield Footer()
 
         with Container(id="main-container"):
-            # Dice Controls
-            with Horizontal(classes="dice-controls-container"):
-                yield Button("➖", id="remove-die", variant="error")
-                yield Label(f"Dice: {self.dice_count}", id="dice-count-label") # Will be updated by watch_dice_count
-                yield Button("➕", id="add-die", variant="success")
+
 
             # Dice Grid
             # The actual dice Label widgets will be added/removed dynamically in update_dice_grid_display
@@ -503,10 +477,7 @@ class DiceRollerApp(App[None]):
 
     def watch_dice_count(self, old_value: int, new_value: int) -> None:
         """Called when dice_count changes."""
-        # Only update the label if it exists (i.e., compose() has run for this widget)
-        dice_count_labels = self.query("#dice-count-label")
-        if dice_count_labels:
-            dice_count_labels.first(Label).update(f"Dice: {new_value}")
+
 
         self.update_dice_grid_display() # This recreates dice_widgets
         # Reset results when dice count changes
@@ -669,20 +640,14 @@ class DiceRollerApp(App[None]):
         self.update_header_subtitle() # Also update header as stats change
 
     def update_button_states(self) -> None:
-        """Enable/disable buttons based on app state."""
+        """Enable or disable buttons based on the application state."""
         try:
             roll_button = self.query_one("#roll-button", Button)
-            add_button = self.query_one("#add-die", Button)
-            remove_button = self.query_one("#remove-die", Button)
             reset_button = self.query_one("#reset-button", Button)
 
             roll_button.disabled = self.is_rolling
             reset_button.disabled = self.is_rolling
-            add_button.disabled = self.is_rolling or self.dice_count >= self.MAX_DICE
-            remove_button.disabled = self.is_rolling or self.dice_count <= self.MIN_DICE
-
-            # Disable number keys for dice count if rolling (will be handled in key bindings)
-        except Exception: # Covers NoMatches if buttons aren't there yet
+        except Exception:  # Covers NoMatches if buttons aren't there yet
             pass
 
     # --- Action Methods for Dice Management ---
