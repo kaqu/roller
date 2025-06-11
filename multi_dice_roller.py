@@ -889,7 +889,6 @@ class DiceRollerApp(App[None]):
         if rolled_at_least_one:
             self.current_results = new_results_list
             self.app_roll_count += 1
-            self.notify(f"Roll #{self.app_roll_count} completed. Sum: {self.current_sum}", timeout=2)
         else:
             # This might happen if unlocked_indices was empty but the initial check failed,
             # or if all animations returned errors (though gather would likely raise one).
