@@ -228,7 +228,7 @@ class DiceRollerApp(App[None]):
         content-align: center middle;
         text-align: center;
         line-height: 1;
-        font-family: monospace;
+        text-font: monospace;
         text-style: bold;
         background: $surface;
         border: solid $accent;
