@@ -451,9 +451,8 @@ class DiceRollerApp(App[None]):
             )
 
         if not self.terminal_caps.get("emoji", True):
-            self.dice_emojis = ["1", "2", "3", "4", "5", "6"]
             self.notify(
-                "Emoji support not detected. Falling back to numbers.",
+                "Emoji support not detected. Dice summary may not render properly.",
                 severity="warning",
                 timeout=4,
             )
