@@ -40,7 +40,7 @@ except ImportError:
 # style.  These are wider than the original emoji faces so they appear
 # more prominent in terminals where the emoji were rendered very small.
 DICE_ART: Dict[int, str] = {
-    1: "   \n  ●  \n   ",
+    1: "     \n  ●  \n     ",
     2: "●    \n     \n    ●",
     3: "●    \n  ●  \n    ●",
     4: "●   ●\n     \n●   ●",
@@ -242,14 +242,19 @@ class DiceRollerApp(App[None]):
     }
 
     .die-emoji-label {
-        width: 8; /* From spec */
-        height: 4; /* From spec */
+        width: 1fr;
+        min-width: 5;
+        max-width: 7;
+        height: 3;
+        min-height: 3;
         content-align: center middle;
-        text-align: center; /* Ensured */
-        text-style: bold; /* From spec */
+        text-align: center;
+        line-height: 1;
+        font-family: monospace;
+        text-style: bold;
         background: $surface;
-        border: solid $accent; /* From spec */
-        margin: 0; /* From spec */
+        border: solid $accent;
+        margin: 0;
     }
 
     .die-emoji-label:hover { /* From spec */
