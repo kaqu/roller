@@ -36,16 +36,52 @@ except ImportError:
 # --- Large ASCII die faces ---
 
 # Dice face representations using simple ASCII pips. Each value is a
-# multiline string that fits within the default 8x4 cell used by the CSS
-# style.  These are wider than the original emoji faces so they appear
+# multiline string that fits within the default 7x5 cell used by the CSS
+# style. These are wider than the original emoji faces so they appear
 # more prominent in terminals where the emoji were rendered very small.
 DICE_ART: Dict[int, str] = {
-    1: "     \n  ●  \n     ",
-    2: "●    \n     \n    ●",
-    3: "●    \n  ●  \n    ●",
-    4: "●   ●\n     \n●   ●",
-    5: "●   ●\n  ●  \n●   ●",
-    6: "●   ●\n●   ●\n●   ●",
+    1: (
+        "       \n"
+        "       \n"
+        "   ●   \n"
+        "       \n"
+        "       "
+    ),
+    2: (
+        "       \n"
+        " ●    \n"
+        "       \n"
+        "     ● \n"
+        "       "
+    ),
+    3: (
+        "       \n"
+        " ●    \n"
+        "   ●   \n"
+        "     ● \n"
+        "       "
+    ),
+    4: (
+        "       \n"
+        " ●   ● \n"
+        "       \n"
+        " ●   ● \n"
+        "       "
+    ),
+    5: (
+        "       \n"
+        " ●   ● \n"
+        "   ●   \n"
+        " ●   ● \n"
+        "       "
+    ),
+    6: (
+        "       \n"
+        " ●   ● \n"
+        " ●   ● \n"
+        " ●   ● \n"
+        "       "
+    ),
 }
 
 # --- Utility Functions ---
@@ -220,15 +256,14 @@ class DiceRollerApp(App[None]):
     }
 
     .die-emoji-label {
-        width: 1fr;
-        min-width: 5;
+        width: 7;
+        min-width: 7;
         max-width: 7;
-        height: 3;
-        min-height: 3;
+        height: 5;
+        min-height: 5;
+        max-height: 5;
         content-align: center middle;
         text-align: center;
-        line-height: 1;
-        text-font: monospace;
         text-style: bold;
         background: $surface;
         border: solid $accent;
