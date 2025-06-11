@@ -11,9 +11,7 @@ import random
 import os
 import shutil
 import uuid
-from enum import Enum # auto removed as DiceState is removed
-from dataclasses import dataclass # field removed as ValidationResult is removed
-from typing import List, Tuple, Dict, Optional, Callable
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from textual.app import App, ComposeResult
@@ -139,7 +137,7 @@ def random_float(min_val: float, max_val: float) -> float:
     byte_count = 4 # 32 bits for precision
     try:
         raw_bytes = secrets.token_bytes(byte_count)
-    except Exception as e:
+    except Exception:
         # Fallback to standard random if secrets.token_bytes fails (highly unlikely in normal environments).
         # This ensures the function still returns a value, albeit less secure.
         normalized_float = random.random()
@@ -408,7 +406,7 @@ class DiceRollerApp(App[None]):
     dice_widgets: List[Label] = []
     # Use larger ASCII representations instead of small emoji faces
     dice_emojis: List[str] = [DICE_ART[i] for i in range(1, 7)]
-    terminal_caps: Dict[str, object] = {}
+    terminal_caps: Dict[str, Any] = {}
     animation_controller: Optional[DiceAnimationController] = None
 
     # --- Visual State Update Method ---
@@ -442,10 +440,14 @@ class DiceRollerApp(App[None]):
 
         min_width = 60
         min_height = 20
-        actual_width, actual_height = self.terminal_caps.get("width", 80), self.terminal_caps.get("height", 24)
+        actual_width = int(self.terminal_caps.get("width", 80))
+        actual_height = int(self.terminal_caps.get("height", 24))
         if actual_width < min_width or actual_height < min_height:
             self.notify(
-                f"Terminal may be too small ({actual_width}x{actual_height}). Recommended minimum: {min_width}x{min_height}.",
+                (
+                    f"Terminal may be too small ({actual_width}x{actual_height}). "
+                    f"Recommended minimum: {min_width}x{min_height}."
+                ),
                 severity="warning",
                 timeout=5,
             )
@@ -575,7 +577,10 @@ class DiceRollerApp(App[None]):
 
     def update_header_subtitle(self) -> None:
         """Updates the header's subtitle with current game status."""
-        self.sub_title = f"{self.dice_count} {'die' if self.dice_count == 1 else 'dice'} | Sum: {self.current_sum} | Roll #{self.app_roll_count}"
+        die_label = "die" if self.dice_count == 1 else "dice"
+        self.sub_title = (
+            f"{self.dice_count} {die_label} | Sum: {self.current_sum} | Roll #{self.app_roll_count}"
+        )
 
     def update_dice_grid_display(self) -> None:
         """Update the dice grid based on the current dice_count."""
@@ -695,7 +700,8 @@ class DiceRollerApp(App[None]):
 
     def action_add_die(self) -> None:
         """Increments the number of dice."""
-        if self.is_rolling: return
+        if self.is_rolling:
+            return
         if self.dice_count < self.MAX_DICE:
             self.dice_count += 1
             # current_results are updated by the watcher, which then calls update_stats_display
@@ -706,7 +712,8 @@ class DiceRollerApp(App[None]):
 
     def action_remove_die(self) -> None:
         """Decrements the number of dice."""
-        if self.is_rolling: return
+        if self.is_rolling:
+            return
         if self.dice_count > self.MIN_DICE:
             self.dice_count -= 1
             # current_results are updated by the watcher, which then calls update_stats_display
@@ -717,7 +724,8 @@ class DiceRollerApp(App[None]):
 
     def action_set_dice_count(self, count: int) -> None:
         """Sets the number of dice directly."""
-        if self.is_rolling: return
+        if self.is_rolling:
+            return
         if self.MIN_DICE <= count <= self.MAX_DICE:
             if self.dice_count != count:
                 self.dice_count = count
@@ -730,7 +738,8 @@ class DiceRollerApp(App[None]):
         """
         Resets all dice to face '1', clears the session roll count, and unlocks all dice.
         """
-        if self.is_rolling: return
+        if self.is_rolling:
+            return
         if self.dice_count > 0:
             self.current_results = [1] * self.dice_count
         else:
