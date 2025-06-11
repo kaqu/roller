@@ -202,7 +202,7 @@ class DiceRollerApp(App[None]):
         min-width: 50;
         width: 100%; /* Expand to available width */
         height: auto;
-        max-width: none; /* No upper limit so container can fill the terminal */
+        max-width: 100%; /* Allow container to expand to full width */
         background: $panel;
         border: heavy $primary;
         margin: 1; /* Simplified from 1 2 */
