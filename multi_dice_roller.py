@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 try:
     from textual.app import App, ComposeResult
     from textual.containers import Container, Horizontal, Vertical, Grid
-    from textual.widgets import Header, Footer, Button, Label # Static removed
+    from textual.widgets import Header, Button, Label  # Footer removed
     from textual.binding import Binding
     # DOMQuery, events, Message removed as they appear unused
     from textual.reactive import reactive
@@ -321,11 +321,6 @@ class DiceRollerApp(App[None]):
         padding: 0 1; /* Ensured */
     }
 
-    Footer {
-        dock: bottom; /* Ensured */
-        background: $secondary; /* From spec */
-        height: 1; /* Ensured */
-    }
 
     /* Responsive grid layouts from spec */
     .grid-1x1 { grid-size-columns: 1; grid-size-rows: 1; grid-gutter: 1; }
@@ -452,7 +447,6 @@ class DiceRollerApp(App[None]):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header(self.TITLE)
-        yield Footer()
 
         with Container(id="main-container"):
 
