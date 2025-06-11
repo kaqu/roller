@@ -3,5 +3,7 @@
     "venv": ".venv",
     "pythonVersion": "3.12",
     "include": ["."],
-    "exclude": ["**/__pycache__", ".git", ".venv"]
+    "exclude": ["**/__pycache__", ".git", ".venv"],
+    "reportMissingImports": false,
+    "reportMissingModuleSource": false
 }
